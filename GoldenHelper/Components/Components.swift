@@ -7,6 +7,44 @@
 
 import SwiftUI
 
+enum NumericInputFormatter {
+    static func normalized(_ input: String) -> String {
+        let replacedInput = input
+            .replacingOccurrences(of: "，", with: ".")
+            .replacingOccurrences(of: ",", with: ".")
+            .replacingOccurrences(of: "。", with: ".")
+            .replacingOccurrences(of: "．", with: ".")
+            .replacingOccurrences(of: " ", with: "")
+        
+        var result = ""
+        var hasDecimalSeparator = false
+        var hasLeadingMinus = false
+        
+        for character in replacedInput {
+            if character.isWholeNumber {
+                result.append(character)
+            } else if character == "." && !hasDecimalSeparator {
+                hasDecimalSeparator = true
+                result.append(character)
+            } else if character == "-" && result.isEmpty && !hasLeadingMinus {
+                hasLeadingMinus = true
+                result.append(character)
+            }
+        }
+        
+        return result
+    }
+}
+
+extension Binding where Value == String {
+    func normalizedNumeric() -> Binding<String> {
+        Binding<String>(
+            get: { wrappedValue },
+            set: { wrappedValue = NumericInputFormatter.normalized($0) }
+        )
+    }
+}
+
 // MARK: - 功能卡片
 struct FeatureCard: View {
     let icon: String
@@ -81,10 +119,12 @@ struct LabeledInput: View {
                 .foregroundColor(Theme.secondaryText(for: colorScheme))
             
             HStack {
-                TextField(placeholder, text: $text)
+                TextField(placeholder, text: $text.normalizedNumeric())
                     .keyboardType(keyboardType)
                     .font(.system(size: 16))
                     .foregroundColor(Theme.primaryText(for: colorScheme))
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
                 
                 if !unit.isEmpty {
                     Text(unit)

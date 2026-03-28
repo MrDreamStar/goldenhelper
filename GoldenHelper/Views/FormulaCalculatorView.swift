@@ -15,12 +15,13 @@ struct FormulaCalculatorView: View {
     let onComplete: (Double, [FormulaVariable]) -> Void
     
     @State private var variables: [FormulaVariable] = []
+    @State private var variableInputs: [String] = []
     
     var calculatedResult: String {
         guard let result = FormulaEvaluator.evaluate(expression: formula.expression, variables: variables) else {
             return "计算错误"
         }
-        return String(format: "%.4f", result)
+        return AppState.DecimalDisplayFormatter.string(from: result, minimumFractionDigits: 4, maximumFractionDigits: 4)
     }
     
     var body: some View {
@@ -57,15 +58,21 @@ struct FormulaCalculatorView: View {
                                 HStack {
                                     TextField("请输入数值", text: Binding(
                                         get: {
-                                            variables[index].value == 0 ? "" : String(variables[index].value)
+                                            variableInputs.indices.contains(index) ? variableInputs[index] : ""
                                         },
                                         set: { newValue in
-                                            variables[index].value = Double(newValue) ?? 0
+                                            let normalizedValue = NumericInputFormatter.normalized(newValue)
+                                            if variableInputs.indices.contains(index) {
+                                                variableInputs[index] = normalizedValue
+                                            }
+                                            variables[index].value = Double(normalizedValue) ?? 0
                                         }
                                     ))
-                                    .keyboardType(.decimalPad)
+                                    .keyboardType(.numbersAndPunctuation)
                                     .font(.system(size: 16))
                                     .foregroundColor(Theme.primaryText(for: colorScheme))
+                                    .autocapitalization(.none)
+                                    .disableAutocorrection(true)
                                 }
                                 .inputFieldStyle()
                             }
@@ -122,6 +129,22 @@ struct FormulaCalculatorView: View {
                 FormulaVariable(name: v.name, label: v.label, value: 0, unit: v.unit)
             }
         }
+        
+        variableInputs = variables.map { variable in
+            variable.value == 0 ? "" : formatNumericInput(variable.value)
+        }
+    }
+    
+    private func formatNumericInput(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = false
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 8
+        formatter.roundingMode = .halfUp
+        formatter.decimalSeparator = "."
+        
+        return formatter.string(from: NSNumber(value: value)) ?? String(value)
     }
     
     private func hideKeyboard() {

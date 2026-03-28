@@ -9,6 +9,27 @@ import SwiftUI
 import Combine
 
 class AppState: ObservableObject {
+    enum DecimalDisplayFormatter {
+        static func string(
+            from value: Double,
+            minimumFractionDigits: Int,
+            maximumFractionDigits: Int,
+            decimalSeparator: String? = nil
+        ) -> String {
+            let formatter = NumberFormatter()
+            formatter.numberStyle = .decimal
+            formatter.usesGroupingSeparator = false
+            formatter.minimumFractionDigits = minimumFractionDigits
+            formatter.maximumFractionDigits = maximumFractionDigits
+            formatter.roundingMode = .halfUp
+            if let decimalSeparator = decimalSeparator {
+                formatter.decimalSeparator = decimalSeparator
+            }
+            
+            return formatter.string(from: NSNumber(value: value)) ?? String(value)
+        }
+    }
+    
     // MARK: - 存储键
     private enum StorageKeys {
         static let settings = "GOLDEN_HELPER_SETTINGS"
@@ -202,15 +223,19 @@ class AppState: ObservableObject {
     
     // MARK: - 工具方法
     func formatCurrency(_ value: Double) -> String {
-        return "\(currencySymbol)\(String(format: "%.2f", value))"
+        return "\(currencySymbol)\(AppState.DecimalDisplayFormatter.string(from: value, minimumFractionDigits: 2, maximumFractionDigits: 2))"
     }
     
     func formatPercent(_ value: Double) -> String {
-        return String(format: "%.2f%%", value * 100)
+        return "\(AppState.DecimalDisplayFormatter.string(from: value * 100, minimumFractionDigits: 2, maximumFractionDigits: 2))%"
     }
     
     func formatNumber(_ value: Double, decimals: Int = 2) -> String {
-        return String(format: "%.\(decimals)f", value)
+        return AppState.DecimalDisplayFormatter.string(
+            from: value,
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        )
     }
     
     func convertWeight(_ value: Double, from: WeightUnit, to: WeightUnit) -> Double {

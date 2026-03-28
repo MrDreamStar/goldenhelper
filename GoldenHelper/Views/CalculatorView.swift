@@ -168,54 +168,73 @@ struct CalculatorView: View {
             SectionHeader(title: "计算结果")
             
             VStack(spacing: 0) {
-                // 主要指标 - 净盈利
-                VStack(spacing: 8) {
-                    Text("净盈利")
-                        .font(.system(size: 14))
-                        .foregroundColor(Theme.secondaryText(for: colorScheme))
-                    
-                    Text(appState.formatCurrency(netProfit))
-                        .font(.system(size: 36, weight: .bold))
-                        .foregroundColor(netProfit >= 0 ? Theme.positiveColor : Theme.negativeColor)
-                    
-                    Text(profitPercentText)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(profitPercent >= 0 ? Theme.positiveColor : Theme.negativeColor)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .background(
-                            Capsule()
-                                .fill((profitPercent >= 0 ? Theme.positiveColor : Theme.negativeColor).opacity(0.1))
-                        )
-                }
-                .padding(.vertical, 24)
-                
-                Divider()
-                    .background(Theme.dividerColor(for: colorScheme))
-                
-                // 详细数据
-                VStack(spacing: 0) {
-                    InfoRow(label: operationType == .none ? "持仓" : "新持仓", value: "\(appState.formatNumber(newHolding)) \(appState.weightUnitLabel)")
-                    
-                    Divider().background(Theme.dividerColor(for: colorScheme).opacity(0.5))
-                    
-                    InfoRow(label: "原总成本", value: appState.formatCurrency(originalTotalCost))
-                    
-                    Divider().background(Theme.dividerColor(for: colorScheme).opacity(0.5))
-                    
-                    InfoRow(label: "新市值", value: appState.formatCurrency(newMarketValue))
-                    
-                    if calculatedFee > 0 {
-                        Divider().background(Theme.dividerColor(for: colorScheme).opacity(0.5))
-                        InfoRow(label: "手续费", value: appState.formatCurrency(calculatedFee))
+                if hasValidCurrentPrice {
+                    // 主要指标 - 净盈利
+                    VStack(spacing: 8) {
+                        Text("净盈利")
+                            .font(.system(size: 14))
+                            .foregroundColor(Theme.secondaryText(for: colorScheme))
+                        
+                        Text(appState.formatCurrency(netProfit))
+                            .font(.system(size: 36, weight: .bold))
+                            .foregroundColor(netProfit >= 0 ? Theme.positiveColor : Theme.negativeColor)
+                        
+                        Text(profitPercentText)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(profitPercent >= 0 ? Theme.positiveColor : Theme.negativeColor)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule()
+                                    .fill((profitPercent >= 0 ? Theme.positiveColor : Theme.negativeColor).opacity(0.1))
+                            )
                     }
+                    .padding(.vertical, 24)
                     
-                    if operationType != .none {
+                    Divider()
+                        .background(Theme.dividerColor(for: colorScheme))
+                    
+                    // 详细数据
+                    VStack(spacing: 0) {
+                        InfoRow(label: operationType == .none ? "持仓" : "新持仓", value: "\(appState.formatNumber(newHolding)) \(appState.weightUnitLabel)")
+                        
                         Divider().background(Theme.dividerColor(for: colorScheme).opacity(0.5))
-                        InfoRow(label: "新成本均价", value: "\(appState.formatCurrency(newAverageCost))/\(appState.weightUnitLabel)", isHighlighted: true)
+                        
+                        InfoRow(label: "原总成本", value: appState.formatCurrency(originalTotalCost))
+                        
+                        Divider().background(Theme.dividerColor(for: colorScheme).opacity(0.5))
+                        
+                        InfoRow(label: "新市值", value: appState.formatCurrency(newMarketValue))
+                        
+                        if calculatedFee > 0 {
+                            Divider().background(Theme.dividerColor(for: colorScheme).opacity(0.5))
+                            InfoRow(label: "手续费", value: appState.formatCurrency(calculatedFee))
+                        }
+                        
+                        if operationType != .none {
+                            Divider().background(Theme.dividerColor(for: colorScheme).opacity(0.5))
+                            InfoRow(label: "新成本均价", value: "\(appState.formatCurrency(newAverageCost))/\(appState.weightUnitLabel)", isHighlighted: true)
+                        }
                     }
+                    .padding(.top, 16)
+                } else {
+                    VStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.circle")
+                            .font(.system(size: 28))
+                            .foregroundColor(Theme.warningColor)
+                        
+                        Text("待输入实时价格")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(Theme.primaryText(for: colorScheme))
+                        
+                        Text("请输入实时价格后，再查看持仓盈亏和收益率。")
+                            .font(.system(size: 14))
+                            .foregroundColor(Theme.secondaryText(for: colorScheme))
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 32)
                 }
-                .padding(.top, 16)
                 
                 // 操作按钮
                 if operationType == .add && operationAmountValue > 0 {
@@ -248,6 +267,11 @@ struct CalculatorView: View {
     
     private var currentPriceValue: Double {
         Double(currentPrice) ?? 0
+    }
+    
+    private var hasValidCurrentPrice: Bool {
+        let trimmedPrice = currentPrice.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmedPrice.isEmpty && Double(trimmedPrice) != nil
     }
     
     private var operationAmountValue: Double {
@@ -293,13 +317,8 @@ struct CalculatorView: View {
     private var calculatedFee: Double {
         switch operationType {
         case .add:
-            if feeMode == .percent {
-                return newMarketValue * feePercentValue
-            } else {
-                return newHolding * fixedFeeValue
-            }
+            return estimatedFee(forHolding: newHolding, marketValue: newMarketValue)
         case .reduce:
-            // 减仓时的手续费
             let reduceCost = operationAmountValue * currentPriceValue
             if feeMode == .percent {
                 return reduceCost * feePercentValue
@@ -307,7 +326,7 @@ struct CalculatorView: View {
                 return operationAmountValue * fixedFeeValue
             }
         case .none:
-            return 0
+            return estimatedFee(forHolding: newHolding, marketValue: newMarketValue)
         }
     }
     
@@ -339,8 +358,8 @@ struct CalculatorView: View {
         currentHolding = appState.calculatorHolding
         costPrice = appState.calculatorCostPrice
         feeMode = appState.feeMode
-        feePercent = String(format: "%.2f", appState.feePercent * 100)
-        fixedFee = String(format: "%.0f", appState.fixedFee)
+        feePercent = AppState.DecimalDisplayFormatter.string(from: appState.feePercent * 100, minimumFractionDigits: 2, maximumFractionDigits: 2)
+        fixedFee = AppState.DecimalDisplayFormatter.string(from: appState.fixedFee, minimumFractionDigits: 0, maximumFractionDigits: 0)
     }
     
     private func confirmAddPosition() {
@@ -376,8 +395,18 @@ struct CalculatorView: View {
         formatter.usesGroupingSeparator = false
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = maxDecimals
+        formatter.roundingMode = .halfUp
+        formatter.decimalSeparator = "."
         
         return formatter.string(from: NSNumber(value: value)) ?? String(value)
+    }
+    
+    private func estimatedFee(forHolding holding: Double, marketValue: Double) -> Double {
+        if feeMode == .percent {
+            return marketValue * feePercentValue
+        } else {
+            return holding * fixedFeeValue
+        }
     }
     
     private func hideKeyboard() {

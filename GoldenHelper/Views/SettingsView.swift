@@ -28,6 +28,9 @@ struct SettingsView: View {
                 // 使用帮助
                 helpSection
                 
+                // 隐私说明
+                privacySection
+                
                 // 关于
                 aboutSection
             }
@@ -151,16 +154,26 @@ struct SettingsView: View {
                             .foregroundColor(Theme.primaryText(for: colorScheme))
                         
                         TextField("7.20", text: Binding(
-                            get: { String(format: "%.2f", appState.exchangeRate) },
+                            get: {
+                                AppState.DecimalDisplayFormatter.string(
+                                    from: appState.exchangeRate,
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                    decimalSeparator: "."
+                                )
+                            },
                             set: { newValue in
-                                if let rate = Double(newValue), rate > 0 {
+                                let normalizedValue = NumericInputFormatter.normalized(newValue)
+                                if let rate = Double(normalizedValue), rate > 0 {
                                     appState.setExchangeRate(rate)
                                 }
                             }
                         ))
-                        .keyboardType(.decimalPad)
+                        .keyboardType(.numbersAndPunctuation)
                         .font(.system(size: 15))
                         .foregroundColor(Theme.primaryText(for: colorScheme))
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
                         .multilineTextAlignment(.trailing)
                         .frame(width: 80)
                         .padding(.horizontal, 12)
@@ -178,7 +191,10 @@ struct SettingsView: View {
                     .background(Theme.dividerColor(for: colorScheme))
                 
                 // 盎司克换算（只读）
-                InfoRow(label: "盎司/克换算", value: "1 oz = \(String(format: "%.4f", appState.ozToGram)) g")
+                InfoRow(
+                    label: "盎司/克换算",
+                    value: "1 oz = \(AppState.DecimalDisplayFormatter.string(from: appState.ozToGram, minimumFractionDigits: 4, maximumFractionDigits: 4)) g"
+                )
             }
             .padding(16)
             .cardStyle()
@@ -216,7 +232,7 @@ struct SettingsView: View {
                     content: [
                         "1. 点击\"+\"按钮创建新公式",
                         "2. 输入公式名称和表达式",
-                        "3. 定义变量（名称、显示名、单位）",
+                        "3. 定义英文变量名，例如 cost、price、amount",
                         "4. 保存后点击公式卡片进行计算",
                         "5. 也可使用预设模板快速创建"
                     ]
@@ -282,6 +298,39 @@ struct SettingsView: View {
                 .padding(.leading, 8)
                 .padding(.bottom, 12)
             }
+        }
+    }
+    
+    // MARK: - 隐私说明
+    private var privacySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "隐私说明")
+            
+            VStack(alignment: .leading, spacing: 12) {
+                Text("黄金助手为纯本地计算工具。")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(Theme.primaryText(for: colorScheme))
+                
+                privacyRow(title: "数据存储", detail: "公式、设置和计算器输入仅保存在当前设备的 UserDefaults 中。")
+                privacyRow(title: "网络访问", detail: "当前版本不连接服务器、不上传数据，也不包含账号系统。")
+                privacyRow(title: "权限使用", detail: "当前版本不申请相册、相机、麦克风、定位、通讯录等敏感权限。")
+                privacyRow(title: "适用范围", detail: "应用提供计算结果和参考信息，不构成投资建议。")
+            }
+            .padding(16)
+            .cardStyle()
+        }
+    }
+    
+    private func privacyRow(title: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(Theme.primaryText(for: colorScheme))
+            
+            Text(detail)
+                .font(.system(size: 13))
+                .foregroundColor(Theme.secondaryText(for: colorScheme))
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
     

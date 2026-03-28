@@ -12,7 +12,6 @@ struct FormulaView: View {
     @Environment(\.colorScheme) var colorScheme
     
     @State private var showEditor = false
-    @State private var showCalculator = false
     @State private var showDeleteConfirm = false
     @State private var editingFormula: Formula?
     @State private var selectedFormula: Formula?
@@ -66,11 +65,9 @@ struct FormulaView: View {
                 }
             }
         }
-        .sheet(isPresented: $showCalculator) {
-            if let formula = selectedFormula {
-                FormulaCalculatorView(formula: formula) { result, variables in
-                    appState.updateFormulaResult(id: formula.id, result: result, variables: variables)
-                }
+        .sheet(item: $selectedFormula) { formula in
+            FormulaCalculatorView(formula: formula) { result, variables in
+                appState.updateFormulaResult(id: formula.id, result: result, variables: variables)
             }
         }
         .alert(isPresented: $showDeleteConfirm) {
@@ -97,7 +94,6 @@ struct FormulaView: View {
                     formula: formula,
                     onTap: {
                         selectedFormula = formula
-                        showCalculator = true
                     },
                     onEdit: {
                         editingFormula = formula
@@ -187,7 +183,7 @@ struct FormulaCard: View {
                             .font(.system(size: 12))
                             .foregroundColor(Theme.secondaryText(for: colorScheme))
                         
-                        Text(String(format: "%.4f", lastResult))
+                        Text(AppState.DecimalDisplayFormatter.string(from: lastResult, minimumFractionDigits: 4, maximumFractionDigits: 4))
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(Theme.negativeColor)
                     }
